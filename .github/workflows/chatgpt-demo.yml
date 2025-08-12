@@ -1,0 +1,169 @@
+# name: Update README on PR Merge (ChatGPT)
+
+# on:
+#   pull_request:
+#     types: [closed]
+
+# permissions:
+#   contents: write
+#   pull-requests: read
+
+# jobs:
+#   update-readme:
+#     # Only run if the PR was actually merged
+#     if: ${{ github.event.pull_request.merged == true }}
+#     runs-on: ubuntu-latest
+#     env:
+#       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+#     steps:
+#       - name: Checkout base branch
+#         uses: actions/checkout@v4
+#         with:
+#           ref: ${{ github.event.pull_request.base.ref }}
+#           fetch-depth: 0
+
+#       - name: Generate README snippet and update file
+#         uses: actions/github-script@v7
+#         with:
+#           script: |
+#             const fs = require('fs');
+#             const path = require('path');
+
+#             const { owner, repo } = context.repo;
+#             const prNumber = context.payload.pull_request.number;
+
+#             // 1) Gather PR metadata + changed files
+#             const pr = (await github.rest.pulls.get({ owner, repo, pull_number: prNumber })).data;
+
+#             const files = await github.paginate(
+#               github.rest.pulls.listFiles,
+#               { owner, repo, pull_number: prNumber, per_page: 100 }
+#             );
+
+#             if (!files.length) {
+#               core.info('No changed files in PR; skipping README update.');
+#               return;
+#             }
+
+#             // Build a concise diff summary; keep patches small to avoid token bloat
+#             const MAX_PATCH = 2000; // per file cap
+#             const diffBlocks = files.map(f => {
+#               const header = `### ${f.status.toUpperCase()}: ${f.filename}`;
+#               let patch = '';
+#               if (f.patch) {
+#                 let p = f.patch;
+#                 if (p.length > MAX_PATCH) {
+#                   p = p.slice(0, MAX_PATCH) + '\n... (truncated)';
+#                 }
+#                 patch = `\n\`\`\`diff\n${p}\n\`\`\``;
+#               }
+#               return `${header}${patch}`;
+#             }).join('\n\n');
+
+#             // 2) Prompt for a README addition
+#             const prompt = `
+# You are updating a project's README after a PR has been merged.
+# Write a succinct Markdown section **to append under an auto-managed block**. Keep it readable and useful for humans.
+
+# Include:
+# - A one-paragraph high-level summary of PR #${pr.number}: "${pr.title}"
+# - A short "Highlights" bullet list (3–8 bullets)
+# - If applicable, "Breaking changes" and "How to verify" subsections
+# - Keep it under ~160 lines. Avoid repeating filenames unless essential.
+# - Do NOT include HTML; only Markdown.
+
+# PR URL: ${pr.html_url}
+# Base branch: ${pr.base.ref}
+# Head branch (already merged): ${pr.head.ref}
+
+# CHANGED FILES (condensed diffs):
+# ${diffBlocks}
+#             `.trim();
+
+#             // 3) Call OpenAI
+#             const res = await fetch("https://api.openai.com/v1/chat/completions", {
+#               method: "POST",
+#               headers: {
+#                 "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+#                 "Content-Type": "application/json"
+#               },
+#               body: JSON.stringify({
+#                 model: "gpt-4.1-mini",
+#                 messages: [{ role: "user", content: prompt }],
+#                 temperature: 0.2,
+#                 max_tokens: 1800
+#               })
+#             });
+
+#             if (!res.ok) {
+#               const body = await res.text();
+#               core.setFailed(`OpenAI API error: ${res.status} ${body}`);
+#               return;
+#             }
+
+#             const data = await res.json();
+#             const snippet =
+#               (data.choices?.[0]?.message?.content || '').trim();
+
+#             if (!snippet) {
+#               core.info('Model returned empty content; skipping README update.');
+#               return;
+#             }
+
+#             // 4) Insert/update in README.md within a managed block
+#             //    We maintain a block like:
+#             //    <!-- AUTO-PR-DOCS:START -->
+#             //    (content)
+#             //    <!-- AUTO-PR-DOCS:END -->
+#             const readmePath = path.join(process.env.GITHUB_WORKSPACE, 'README.md');
+
+#             let readme = '';
+#             try {
+#               readme = fs.readFileSync(readmePath, 'utf8');
+#             } catch {
+#               // If no README.md exists, start one
+#               readme = '# Project\n\n';
+#             }
+
+#             const START = '<!-- AUTO-PR-DOCS:START -->';
+#             const END = '<!-- AUTO-PR-DOCS:END -->';
+
+#             const entryHeader = `\n\n### PR #${pr.number}: ${pr.title}\n${pr.html_url}\n\n`;
+#             const newBlockContent = `${entryHeader}${snippet}\n`;
+
+#             let updated = '';
+#             if (readme.includes(START) && readme.includes(END)) {
+#               // Append this PR’s entry at the top of the block (most recent first)
+#               const before = readme.split(START)[0];
+#               const afterBlock = readme.split(END)[1];
+#               const middle = readme.substring(
+#                 readme.indexOf(START) + START.length,
+#                 readme.indexOf(END)
+#               );
+
+#               const trimmedMiddle = middle.trim();
+#               const combined = trimmedMiddle
+#                 ? `${newBlockContent}\n---\n${trimmedMiddle}\n`
+#                 : `${newBlockContent}\n`;
+
+#               updated = `${before}${START}\n${combined}${END}${afterBlock}`;
+#             } else {
+#               // Create the block at the end of README
+#               updated = `${readme.trim()}\n\n${START}\n${newBlockContent}${END}\n`;
+#             }
+
+#             if (updated === readme) {
+#               core.info('No changes to README computed.');
+#               return;
+#             }
+
+#             fs.writeFileSync(readmePath, updated, 'utf8');
+#             core.setOutput('readme_changed', 'true');
+
+#       - name: Commit changes
+#         if: steps.generate_readme_snippet.outputs.readme_changed == 'true'
+#         uses: stefanzweifel/git-auto-commit-action@v5
+#         with:
+#           commit_message: "docs(readme): auto-update after PR #${{ github.event.pull_request.number }}"
+#           branch: ${{ github.event.pull_request.base.ref }}
