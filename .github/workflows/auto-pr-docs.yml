@@ -1,10 +1,15 @@
 name: Auto-generate PR Documentation (ChatGPT)
 
 on:
-    pull_request:
-        branches:
-            - '**'
-        types: [opened, edited, reopened, synchronize, ready_for_review]
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+
 
 
 permissions:
