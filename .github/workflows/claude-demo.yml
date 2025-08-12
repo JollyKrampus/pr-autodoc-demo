@@ -1,0 +1,21 @@
+name: Claude Smoke Test
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  id-token: write      
+  contents: read
+  pull-requests: write
+
+jobs:
+  claude-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Claude Code (OIDC)
+        uses: anthropics/claude-code-action@beta
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

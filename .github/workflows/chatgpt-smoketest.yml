@@ -1,0 +1,55 @@
+# name: ChatGPT Smoke Test
+
+# on:
+#   push:
+#     branches:
+#       - '**'
+#   pull_request:
+#   workflow_dispatch:
+
+# jobs:
+#   chatgpt-test:
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: read
+#     env:
+#       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+#     steps:
+#       - name: Ensure jq is available
+#         run: |
+#           if ! command -v jq >/dev/null 2>&1; then
+#             sudo apt-get update -y
+#             sudo apt-get install -y jq
+#           fi
+
+#       - name: Call OpenAI and print response
+#         shell: bash
+#         run: |
+#           if [ "${{ github.event_name }}" = "pull_request" ]; then
+#             PROMPT="Hello from GitHub Actions. Confirm connectivity. Repo=${{ github.repository }}, PR=#${{ github.event.pull_request.number }}."
+#           else
+#             PROMPT="Hello from GitHub Actions. Confirm connectivity. Repo=${{ github.repository }}, Ref=${{ github.ref }}."
+#           fi
+
+#           RESP=$(curl -sS https://api.openai.com/v1/chat/completions \
+#             -H "Authorization: Bearer ${OPENAI_API_KEY}" \
+#             -H "Content-Type: application/json" \
+#             -d "$(jq -n \
+#                   --arg p "$PROMPT" \
+#                   '{model:"gpt-4.1-mini", messages:[{role:"user", content:$p}], temperature:0.2, max_tokens:256}')" )
+
+#           echo "::group::Raw OpenAI response"
+#           echo "$RESP"
+#           echo "::endgroup::"
+
+#           CONTENT=$(echo "$RESP" | jq -r '.choices[0].message.content // "No content"')
+
+#           echo "=== ChatGPT says ==="
+#           echo "$CONTENT"
+
+#           {
+#             echo "## ChatGPT Smoke Test"
+#             echo
+#             echo "$CONTENT"
+#           } >> "$GITHUB_STEP_SUMMARY"
