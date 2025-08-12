@@ -26,7 +26,6 @@ jobs:
             const { owner, repo } = context.repo;
             const prNumber = pr.number;
 
-            // 1) Gather changed files/patches
             const files = await github.paginate(
               github.rest.pulls.listFiles,
               { owner, repo, pull_number: prNumber, per_page: 100 }
@@ -37,7 +36,6 @@ jobs:
               return;
             }
 
-            // 2) Build a human-readable diff summary
             const diffBlocks = files.map(f => {
               const header = `### ${f.status.toUpperCase()}: ${f.filename}`;
               const patch = f.patch ? `\n\`\`\`diff\n${f.patch}\n\`\`\`` : "";
@@ -45,74 +43,75 @@ jobs:
             }).join("\n\n");
 
             const prompt = `
-Write a concise Markdown doc for this PR:
-- High-level summary
-- New/changed endpoints, controllers, schedules, events, config
-- Breaking changes (if any)
-- Release notes (bulleted)
-- How-to-verify checklist
-Use headings. Keep it under ~400 lines.
+                        Write a concise Markdown doc for this PR:
+                        - High-level summary
+                        - New/changed endpoints, controllers, schedules, events, config
+                        - Breaking changes (if any)
+                        - Release notes (bulleted)
+                        - How-to-verify checklist
+                        - Use headings. Keep it under ~400 lines.
 
-DIFF:
-${diffBlocks}
-            `.trim();
+# DIFF:
+# \${diffBlocks}
+#             `.trim();
 
-            // 3) Call OpenAI Chat Completions
-            const fetch = globalThis.fetch;
-            const res = await fetch("https://api.openai.com/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                model: "gpt-4.1-mini",
-                messages: [{ role: "user", content: prompt }],
-                temperature: 0.2,
-                max_tokens: 1800
-              })
-            });
 
-            if (!res.ok) {
-              const body = await res.text();
-              core.setFailed(`OpenAI API error: ${res.status} ${body}`);
-              return;
-            }
+#             // 3) Call OpenAI Chat Completions
+#             const fetch = globalThis.fetch;
+#             const res = await fetch("https://api.openai.com/v1/chat/completions", {
+#             method: "POST",
+#             headers: {
+#                 "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+#                 "Content-Type": "application/json"
+#             },
+#             body: JSON.stringify({
+#                 model: "gpt-4.1-mini",
+#                 messages: [{ role: "user", content: prompt }],
+#                 temperature: 0.2,
+#                 max_tokens: 1800
+#             })
+#             });
 
-            const data = await res.json();
-            const docText =
-              (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content)
-              || "# PR Docs\n\n(No content)";
+#             if (!res.ok) {
+#             const body = await res.text();
+#             core.setFailed(`OpenAI API error: ${res.status} ${body}`);
+#             return;
+#             }
 
-            // 4) Create docs branch off the PR head
-            const baseRef = pr.head.ref;
-            const headRef = await github.rest.git.getRef({ owner, repo, ref: `heads/${baseRef}` });
-            const headSha = headRef.data.object.sha;
+#             const data = await res.json();
+#             const docText =
+#             (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content)
+#             || "# PR Docs\n\n(No content)";
 
-            const docsBranch = `docs/auto/pr-${prNumber}-${Date.now()}`;
-            await github.rest.git.createRef({
-              owner, repo,
-              ref: `refs/heads/${docsBranch}`,
-              sha: headSha
-            });
+#             // 4) Create docs branch off the PR head
+#             const baseRef = pr.head.ref;
+#             const headRef = await github.rest.git.getRef({ owner, repo, ref: `heads/${baseRef}` });
+#             const headSha = headRef.data.object.sha;
 
-            const path = `docs/prs/PR-${prNumber}.md`;
-            const contentB64 = Buffer.from(docText, "utf8").toString("base64");
+#             const docsBranch = `docs/auto/pr-${prNumber}-${Date.now()}`;
+#             await github.rest.git.createRef({
+#             owner, repo,
+#             ref: `refs/heads/${docsBranch}`,
+#             sha: headSha
+#             });
 
-            await github.rest.repos.createOrUpdateFileContents({
-              owner, repo,
-              path,
-              message: `docs: auto-generated documentation for PR #${prNumber}`,
-              content: contentB64,
-              branch: docsBranch
-            });
+#             const path = `docs/prs/PR-${prNumber}.md`;
+#             const contentB64 = Buffer.from(docText, "utf8").toString("base64");
 
-            const newPr = await github.rest.pulls.create({
-              owner, repo,
-              title: `docs: Add documentation for PR #${prNumber}`,
-              head: docsBranch,
-              base: pr.base.ref,
-              body: `Auto-generated docs based on diff from #${prNumber}. Please review before merge.`
-            });
+#             await github.rest.repos.createOrUpdateFileContents({
+#             owner, repo,
+#             path,
+#             message: `docs: auto-generated documentation for PR #${prNumber}`,
+#             content: contentB64,
+#             branch: docsBranch
+#             });
 
-            core.info(`Opened documentation PR: ${newPr.data.html_url}`);
+#             const newPr = await github.rest.pulls.create({
+#             owner, repo,
+#             title: `docs: Add documentation for PR #${prNumber}`,
+#             head: docsBranch,
+#             base: pr.base.ref,
+#             body: `Auto-generated docs based on diff from #${prNumber}. Please review before merge.`
+#             });
+
+#             core.info(`Opened documentation PR: ${newPr.data.html_url}`);
