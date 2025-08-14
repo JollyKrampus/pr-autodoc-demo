@@ -1,0 +1,43 @@
+# copied from the source https://github.com/textcortex/claude-code-pr-autodoc-action
+name: Auto-generate PR Documentation Advanced
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+      - develop
+
+jobs:
+  generate-documentation:
+    # Only run for merged PRs that don't have the 'skip-docs' label
+    # The action itself will also check for bot-created PRs to prevent loops
+    if: |
+      github.event.pull_request.merged == true &&
+      !contains(github.event.pull_request.labels.*.name, 'skip-docs')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write  # Required for OIDC authentication
+
+    steps:
+      - uses: textcortex/claude-code-pr-autodoc-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          min_lines_changed: "50"
+          min_files_changed: "1"
+          documentation_directory: "docs/pull-requests"
+          commit_tags: "[skip ci] [auto-doc]"
+          pr_title_tags: "[Documentation]"
+          timeout_minutes: "15"
+          pr_labels: "advanced"
+          custom_instructions: |
+            Focus on:
+            - Business impact and user-facing changes
+            - Technical architecture decisions
+            - Performance implications
+            - Security considerations
+            - Testing coverage
+
+            Be concise but thorough.
