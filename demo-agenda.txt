@@ -1,0 +1,4 @@
+demo:
+simple (https://github.com/textcortex/claude-code-pr-autodoc-action)
+show claude bot comment 
+
