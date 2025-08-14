@@ -5,6 +5,11 @@ on:
     types: [closed]
     branches: [main]
 
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
 jobs:
   generate-documentation:
     if: |
@@ -12,11 +17,41 @@ jobs:
       github.event.pull_request.user.type != 'Bot' &&
       !startsWith(github.event.pull_request.title, 'docs: Add documentation for PR')
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      id-token: write
+
     steps:
-      - uses: textcortex/claude-code-pr-autodoc-action@v1
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude PR Autodoc
+        uses: textcortex/claude-code-pr-autodoc-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          min_lines_changed: "1"
+          min_files_changed: "1"
+          documentation_directory: "docs/prs"
+          pr_title_tags: "[Documentation]"
+          commit_tags: "[skip ci]"
+          timeout_minutes: "15"
+          custom_instructions: |
+            Focus on user-facing impact, install/run steps if any,
+            breaking changes, and a brief code map.
+
+      - name: Ensure clean checkout of main
+        run: |
+          git fetch origin main --depth=1
+          git checkout -B main origin/main
+
+      - name: Open docs PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "docs: Add documentation for PR #${{ github.event.pull_request.number }} [skip ci]"
+          title: "docs: Add documentation for PR #${{ github.event.pull_request.number }}"
+          body: |
+            Automated documentation for PR #${{ github.event.pull_request.number }}.
+            Generated with [Claude Code](https://claude.ai/code).
+          branch: docs/pr-${{ github.event.pull_request.number }}-${{ github.run_id }}
+          labels: documentation
+          add-paths: |
+            docs/prs/**
