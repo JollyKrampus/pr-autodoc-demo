@@ -37,7 +37,3 @@ jobs:
           custom_instructions: |
             Focus on user-facing impact, install/run steps if any,
             breaking changes, and a brief code map.
-          disallowed_tools: |
-            Bash(git add:*)
-            Bash(git commit:*)
-            Bash(git push:*)
