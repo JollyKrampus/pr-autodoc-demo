@@ -3,37 +3,24 @@ name: Auto-generate PR Documentation
 on:
   pull_request:
     types: [closed]
-    branches: [main]
-
-permissions:
-  contents: write
-  pull-requests: write
-  id-token: write
+    branches:
+      - main
 
 jobs:
   generate-documentation:
+    # Only run when PR is merged and not created by bots
+    # This prevents infinite loops and saves compute resources
     if: |
       github.event.pull_request.merged == true &&
       github.event.pull_request.user.type != 'Bot' &&
       !startsWith(github.event.pull_request.title, 'docs: Add documentation for PR')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write  # Required for OIDC authentication
 
     steps:
-      - name: Checkout (full history)
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Claude PR Autodoc
-        uses: textcortex/claude-code-pr-autodoc-action@v1
+      - uses: textcortex/claude-code-pr-autodoc-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          min_lines_changed: "1"
-          min_files_changed: "1"
-          documentation_directory: "docs/prs"
-          pr_title_tags: "[Documentation]"
-          commit_tags: "[skip ci]"
-          timeout_minutes: "15"
-          custom_instructions: |
-            Focus on user-facing impact, install/run steps if any,
-            breaking changes, and a brief code map.
