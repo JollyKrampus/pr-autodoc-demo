@@ -20,8 +20,3 @@ jobs:
       - uses: textcortex/claude-code-pr-autodoc-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # Optional tuning (see "Advanced" below)
-          # documentation_directory: "docs/prs"
-          # min_lines_changed: "50"
-          # min_files_changed: "1"
-          # timeout_minutes: "10"
