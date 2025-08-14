@@ -1,21 +1,27 @@
-name: Claude Smoke Test
+name: Auto-generate PR Documentation
 
 on:
   pull_request:
-  workflow_dispatch:
-
-permissions:
-  id-token: write      
-  contents: read
-  pull-requests: write
+    types: [closed]
+    branches: [main]
 
 jobs:
-  claude-test:
+  generate-documentation:
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.user.type != 'Bot' &&
+      !startsWith(github.event.pull_request.title, 'docs: Add documentation for PR')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Claude Code (OIDC)
-        uses: anthropics/claude-code-action@beta
+      - uses: textcortex/claude-code-pr-autodoc-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Optional tuning (see "Advanced" below)
+          # documentation_directory: "docs/prs"
+          # min_lines_changed: "50"
+          # min_files_changed: "1"
+          # timeout_minutes: "10"
