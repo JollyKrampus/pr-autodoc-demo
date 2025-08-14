@@ -1,4 +1,9 @@
 demo:
-simple (https://github.com/textcortex/claude-code-pr-autodoc-action)
-show claude bot comment 
-
+(https://github.com/textcortex/claude-code-pr-autodoc-action)
+  Every merged PR gets a human-readable doc, auto-generated and proposed via PR—zero manual effort.
+  show yml
+  show claude bot comment (Created initial comment with ID … / Claude Code is working…)
+  run a change and merge it and walk through the logs
+  show the docs created
+  pitfalls: has to go through claude, can't use open ai. we could build our own custom organization documentation creator copying many of the features from textcortex, I actually started going down that path but it was going to be a way too much effort to get a demo ready with everything else going on.
+  no way out of the box to do what my intial goal was: to update the readme markdown files based on changes. only creates a new markdown file in the pr/docs or whatever path you set them to save in. maybe helpful for some teams, especially if we can tie jira stories to them... so kind of an audit trail is all this does, the prompts may be nice for some business owners to have an easier and unbiased understanding of what's going on, but to get readme files updated with changes will require us to do some custom fork of the code from textcortex or make our own which will be a decent amount of work

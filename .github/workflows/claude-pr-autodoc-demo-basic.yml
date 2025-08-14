@@ -1,4 +1,5 @@
-name: Auto-generate PR Documentation
+# copied from the source https://github.com/textcortex/claude-code-pr-autodoc-action
+name: Auto-generate PR Documentation Basic
 
 on:
   pull_request:
@@ -24,3 +25,4 @@ jobs:
       - uses: textcortex/claude-code-pr-autodoc-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          pr_labels: "basic"
